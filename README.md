@@ -4,3 +4,20 @@ This project is about wrapping the (purely) compute related functionalities of V
 
 ## Overview
 The interface is still being designed. It will feature abstractions for devices, memory, buffers, shaders, etc.
+
+```c++
+DevicePool devicePool;
+for (Device &device : devicePool.getDevices()) {
+    cout << "Found device: " << device.getName() << " from vendor: 0x"
+         << hex << device.getVendorId() << endl;
+
+    Memory mem = device.memory(1000 * sizeof(int));
+    int *map = (int *) mem.map();
+
+    for (int i = 0; i < 1000; i++) {
+        map[i] = i;
+    }
+
+    mem.unmap();
+}
+```
