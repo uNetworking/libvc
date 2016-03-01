@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan.h>
 #include <vector>
+#include <fstream>
 
 namespace vc {
 
@@ -10,7 +11,8 @@ enum {
     ERROR_INSTANCE,
     ERROR_DEVICES,
     ERROR_MALLOC,
-    ERROR_MAP
+    ERROR_MAP,
+    ERROR_SHADER
 };
 
 class Memory {
@@ -38,6 +40,17 @@ public:
     void unmap()
     {
         vkUnmapMemory(vkDevice, vkMemory);
+    }
+};
+
+class Shader {
+private:
+    VkShaderModule vkShaderModule;
+
+public:
+    Shader(VkShaderModule shaderModule)
+    {
+        vkShaderModule = shaderModule;
     }
 };
 
@@ -71,6 +84,45 @@ public:
         if (VK_SUCCESS != vkCreateDevice(vkPhysicalDevice, &deviceCreateInfo, nullptr, &device)) {
             throw ERROR_DEVICES;
         }
+    }
+
+    Shader loadShader(const char *fileName)
+    {
+        std::ifstream fin(fileName, std::ifstream::ate);
+        size_t byteLength = fin.tellg();
+        fin.seekg(0, std::ifstream::beg);
+        char *data = new char[byteLength];
+        fin.read(data, byteLength);
+        fin.close();
+
+        VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+        shaderModuleCreateInfo.codeSize = byteLength;
+        shaderModuleCreateInfo.pCode = (uint32_t *) data;
+
+        VkShaderModule shaderModule;
+        if (VK_SUCCESS != vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &shaderModule)) {
+            throw ERROR_SHADER;
+        }
+
+
+        // also create the pipeline here!
+        VkPipelineShaderStageCreateInfo pipelineShaderInfo = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+        pipelineShaderInfo.module = shaderModule;
+        pipelineShaderInfo.pName = "main";
+        pipelineShaderInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        VkComputePipelineCreateInfo pipelineInfo = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+        pipelineInfo.stage = pipelineShaderInfo;
+
+        VkPipeline pipeline;
+        if (VK_SUCCESS != vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline)) {
+            throw ERROR_DEVICES;
+        }
+
+
+
+
+        return Shader(shaderModule);
     }
 
     const char *getName()
