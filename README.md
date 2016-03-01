@@ -19,5 +19,17 @@ for (Device &device : devicePool.getDevices()) {
     }
 
     mem.unmap();
+    
+    // load / compile shader
+    Shader shader = device.loadShader("/home/alexhultman/computeShader.spr");
+
+    // bind shader to current command buffer (currently hidden in device)
+    device.useShader(shader);
+
+    // enquque a range to the current command buffer
+    device.dispatch(1000, 1, 1);
+
+    // end the command buffer and submit it, wait for it to finish, time it
+    device.drain();
 }
 ```
