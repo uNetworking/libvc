@@ -5,6 +5,10 @@
 #include <vector>
 #include <fstream>
 
+// only for debug
+#include <chrono>
+#include <iostream>
+
 namespace vc {
 
 enum {
@@ -43,14 +47,17 @@ public:
     }
 };
 
+class Device;
+
 class Shader {
+    friend class Device;
 private:
-    VkShaderModule vkShaderModule;
+    VkPipeline vkPipeline;
 
 public:
-    Shader(VkShaderModule shaderModule)
+    Shader(VkPipeline pipeline)
     {
-        vkShaderModule = shaderModule;
+        vkPipeline = pipeline;
     }
 };
 
@@ -59,6 +66,9 @@ private:
     VkPhysicalDevice vkPhysicalDevice;
     VkPhysicalDeviceProperties deviceProperties;
     VkDevice device;
+    VkQueue queue;
+    VkCommandPool commandPool;
+    VkCommandBuffer commandBuffer;
 
 public:
     Device(VkPhysicalDevice physicalDevice)
@@ -84,8 +94,75 @@ public:
         if (VK_SUCCESS != vkCreateDevice(vkPhysicalDevice, &deviceCreateInfo, nullptr, &device)) {
             throw ERROR_DEVICES;
         }
+
+        vkGetDeviceQueue(device, 0, 0, &queue);
+
+
+        // create command pool
+        VkCommandPoolCreateInfo commandPoolInfo = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+        commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        commandPoolInfo.queueFamilyIndex = 0;
+        if (VK_SUCCESS != vkCreateCommandPool(device, &commandPoolInfo, nullptr, &commandPool)) {
+            throw ERROR_DEVICES;
+        }
+
+        // create command buffer (these should be exposed separately as objects that can be submitted to devices)
+        VkCommandBufferAllocateInfo commandBufferInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+        commandBufferInfo.commandBufferCount = 1;
+        commandBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        commandBufferInfo.commandPool = commandPool;
+        if (VK_SUCCESS != vkAllocateCommandBuffers(device, &commandBufferInfo, &commandBuffer)) {
+            throw ERROR_DEVICES;
+        }
+
+        // this should be a function of the CommandBuffer object: begin()
+        VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        if (VK_SUCCESS != vkBeginCommandBuffer(commandBuffer, &beginInfo)) {
+            throw ERROR_DEVICES;
+        }
     }
 
+    // bind shader to command buffer
+    void useShader(Shader &shader)
+    {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, shader.vkPipeline);
+    }
+
+    // drain, split this up
+    void drain()
+    {
+        // this should be a function in CommandBuffer: end()
+        if (VK_SUCCESS != vkEndCommandBuffer(commandBuffer)) {
+            throw ERROR_DEVICES;
+        }
+
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+
+        // Device.submit(CommandBuffer)
+        VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+        if (VK_SUCCESS != vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE)) {
+            throw ERROR_DEVICES;
+        }
+
+        // Device.finish() / drain()
+        if (VK_SUCCESS != vkQueueWaitIdle(queue)) {
+            throw ERROR_DEVICES;
+        }
+
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::cout << "Computation took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms.\n";
+    }
+
+    // this will dispatch the previously "used" shader
+    void dispatch(int x, int y, int z)
+    {
+        vkCmdDispatch(commandBuffer, x, y, z);
+    }
+
+    // compileShader? createShader?
     Shader loadShader(const char *fileName)
     {
         std::ifstream fin(fileName, std::ifstream::ate);
@@ -114,15 +191,13 @@ public:
         VkComputePipelineCreateInfo pipelineInfo = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
         pipelineInfo.stage = pipelineShaderInfo;
 
+        // this is a place where things can hang if the shader is somehow bad
         VkPipeline pipeline;
         if (VK_SUCCESS != vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline)) {
             throw ERROR_DEVICES;
         }
 
-
-
-
-        return Shader(shaderModule);
+        return Shader(pipeline);
     }
 
     const char *getName()
@@ -151,7 +226,7 @@ public:
 
 class DevicePool {
 private:
-    const int MAX_DEVICES = 10;
+    const int MAX_DEVICES = 10; // you dont need this, can get from the driver
     VkInstance vkInstance;
     std::vector<Device> devices;
 
