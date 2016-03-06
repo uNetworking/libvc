@@ -16,25 +16,25 @@ for (Device &device : devicePool.getDevices()) {
     cout << "Found device: " << device.getName() << " from vendor: 0x"
          << hex << device.getVendorId() << endl;
 
-    Memory mem = device.memory(1000 * sizeof(int));
-    int *map = (int *) mem.map();
-
-    for (int i = 0; i < 1000; i++) {
-        map[i] = i;
-    }
-
-    mem.unmap();
+    // Load & compile a compute pipeline with 1 bound buffer
+    Pipeline pipeline("computeShader.spv", {
+        BUFFER
+    });
     
-    // load / compile shader
-    Shader shader = device.loadShader("/home/alexhultman/computeShader.spr");
+    // Allocate a 1 kb buffer, undefined content
+    Buffer = device.buffer(1024);
+    
+    // todo: CommandBuffer::start()
 
-    // bind shader to current command buffer (currently hidden in device)
-    device.useShader(shader);
+    // Use this pipeline and bind the buffer to its first binding point    
+    device.usePipeline(pipeline, {buffer});
 
-    // enquque a range to the current command buffer
-    device.dispatch(1000, 1, 1);
+    // Enquque a range to the current command buffer
+    device.dispatch(1024, 1, 1);
+    
+    // todo: CommandBuffer::end()
 
-    // end the command buffer and submit it, wait for it to finish, time it
+    // End the command buffer and submit it, wait for it to finish, time it
     device.drain();
 }
 ```
