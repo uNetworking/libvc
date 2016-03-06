@@ -11,7 +11,7 @@
 
 namespace vc {
 
-enum {
+enum Error{
     ERROR_INSTANCE,
     ERROR_DEVICES,
     ERROR_MALLOC,
@@ -190,6 +190,44 @@ public:
 
         VkComputePipelineCreateInfo pipelineInfo = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
         pipelineInfo.stage = pipelineShaderInfo;
+
+
+        VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        pipelineLayoutCreateInfo.setLayoutCount = 1;
+
+
+        VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+        // todo: specify layout resources
+        descriptorSetLayoutCreateInfo.bindingCount = 1;
+
+        VkDescriptorSetLayoutBinding bindings;
+
+
+        // a vector of the bindings in this layout set!
+        descriptorSetLayoutCreateInfo.pBindings = &bindings;
+        bindings.binding = 0;
+        bindings.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bindings.descriptorCount = 1;
+        bindings.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+
+        VkDescriptorSetLayout setLayouts;
+        if (VK_SUCCESS != vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, nullptr, &setLayouts)) {
+            throw ERROR_SHADER;
+        }
+
+
+        pipelineLayoutCreateInfo.pSetLayouts = &setLayouts;
+
+
+        VkPipelineLayout pipelineLayout;
+        if (VK_SUCCESS != vkCreatePipelineLayout(device,&pipelineLayoutCreateInfo, nullptr, &pipelineLayout)) {
+            throw ERROR_SHADER;
+        }
+
+
+        // needed to not crash when using shaders with buffers!
+        pipelineInfo.layout = pipelineLayout;
 
         // this is a place where things can hang if the shader is somehow bad
         VkPipeline pipeline;
