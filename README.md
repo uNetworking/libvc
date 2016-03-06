@@ -7,7 +7,7 @@ Compute shaders are constantly being evolved and extended with new versions of O
 * Vulkan command buffers allows for recording commands once and replaying them multiple times, minimizing CPU overhead.
 * NVIDIA refuse to embrace OpenCL in favor of their prioprietary CUDA altenative - but they do embrace Vulkan and OpenGL.
 
-![](vulkan.png)
+![](vulkan.png) ![](spir.png)
 
 ## Overview
 The interface is still being designed. It will feature abstractions for devices, memory, buffers, shaders, etc.
