@@ -22,7 +22,7 @@ for (Device &device : devicePool.getDevices()) {
     });
     
     // Allocate a 1 kb buffer, undefined content
-    Buffer = device.buffer(1024);
+    Buffer buffer = device.buffer(1024);
     
     // todo: CommandBuffer::start()
 
