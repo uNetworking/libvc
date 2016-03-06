@@ -1,0 +1,17 @@
+#version 430
+
+// local size is defined in shader
+layout(local_size_x=256, local_size_y=1, local_size_z=1) in;
+
+// bind a buffer to the shader
+layout (binding=0) buffer someThing
+{
+	float element[];
+};
+
+// just set first float in buffer
+void main()
+{
+	for (int i = 0; i < 1000000; i++)
+		element[0] = 123456;
+}
