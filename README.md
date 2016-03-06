@@ -18,25 +18,37 @@ for (Device &device : devicePool.getDevices()) {
     cout << "Found device: " << device.getName() << " from vendor: 0x"
          << hex << device.getVendorId() << endl;
 
+    // -- PREPARATIONS --
+
     // Load & compile a compute pipeline with 1 bound buffer
-    Pipeline pipeline("computeShader.spv", {
+    Pipeline pipeline = device.pipeline("computeShader.spv", {
         BUFFER
     });
     
     // Allocate a 1 kb buffer, undefined content
     Buffer buffer = device.buffer(1024);
     
-    // todo: CommandBuffer::start()
+    // Create a command buffer and start recording commands to it
+    CommandBuffer commandBuffer = device.commandBuffer();
+    commandBuffer.start();
 
-    // Use this pipeline and bind the buffer to its first binding point    
-    device.usePipeline(pipeline, {buffer});
+    // Use the pipeline & bind our buffer to its first binding point
+    commandBuffer.usePipeline(pipeline, {buffer});
 
-    // Enquque a range to the current command buffer
-    device.dispatch(1024, 1, 1);
+    // Enquque a dispatch (execution over a range)
+    commandBuffer.dispatch(1024, 1, 1);
+
+    // Ending the command buffer is separate from submitting it
+    commandBuffer.end();
     
-    // todo: CommandBuffer::end()
-
-    // End the command buffer and submit it, wait for it to finish, time it
+    // -- Start your timer here --
+    
+    // Submit the command buffer for execution on the GPU
+    device.submit(commandBuffer);
+    
+    // Wait for completion
     device.drain();
+    
+    // -- End your timer here --
 }
 ```
