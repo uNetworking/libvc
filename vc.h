@@ -331,6 +331,13 @@ public:
 
 
 
+        VkDescriptorPool descriptorPool;
+        VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        //descriptorPoolCreateInfo.
+        if (VK_SUCCESS != vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, &descriptorPool)) {
+            throw ERROR_SHADER;
+        }
+
 
 
         // bind resources to slots
@@ -338,6 +345,7 @@ public:
         VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
         descriptorSetAllocateInfo.descriptorSetCount = 1;
         descriptorSetAllocateInfo.pSetLayouts = &setLayouts;
+        descriptorSetAllocateInfo.descriptorPool = descriptorPool;
 
         if (VK_SUCCESS != vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &descriptorSet)) {
             throw ERROR_SHADER;
