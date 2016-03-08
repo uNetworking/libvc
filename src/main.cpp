@@ -14,14 +14,14 @@ int main()
     for (Device &device : devicePool.getDevices()) {
         cout << "Found device: " << device.getName() << " from vendor: 0x" << hex << device.getVendorId() << dec << endl;
 
-        Memory mem = device.memory(1000 * sizeof(int));
+        /*Memory mem = device.memory(1000 * sizeof(int));
         int *map = (int *) mem.map();
 
         for (int i = 0; i < 1000; i++) {
             map[i] = i;
         }
 
-        mem.unmap();
+        mem.unmap();*/
 
         try {
 
@@ -35,10 +35,16 @@ int main()
             device.useResources();
 
             // enquque a range to the current command buffer
-            device.dispatch(1000, 1, 1);
+            device.dispatch(1, 1, 1);
 
             // end the command buffer and submit it, wait for it to finish, time it
             device.drain();
+
+            // try to read the buffer now!
+            Memory mem(device.memory, device.device);
+            float *reals = (float *) mem.map();
+            cout << "Read memory[0] = " << reals[0] << endl;
+
 
         } catch(vc::Error e) {
             cout << "vc::Error thrown" << endl;

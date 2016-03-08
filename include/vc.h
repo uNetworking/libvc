@@ -8,6 +8,7 @@
 // only for debug
 #include <chrono>
 #include <iostream>
+#include <thread>
 
 namespace vc {
 
@@ -66,13 +67,17 @@ public:
 };
 
 class Device {
-private:
+public: //private:
     VkPhysicalDevice vkPhysicalDevice;
     VkPhysicalDeviceProperties deviceProperties;
     VkDevice device;
     VkQueue queue;
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
+
+    // example buffer
+    VkBuffer buffer;
+    VkDeviceMemory memory;
 
 public:
     Device(VkPhysicalDevice physicalDevice)
@@ -152,11 +157,7 @@ public:
         }
 
         // Device.finish() / drain()
-        int err;
-        if (VK_SUCCESS != (err = vkQueueWaitIdle(queue))) {
-            if (err == VK_ERROR_DEVICE_LOST) {
-                std::cout << "NVIDIA driver bug?" << std::endl;
-            }
+        if (VK_SUCCESS != vkQueueWaitIdle(queue)) {
             throw ERROR_DEVICES;
         }
 
@@ -366,10 +367,28 @@ public:
         VkBufferCreateInfo bufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
         bufferInfo.size = 1024 * sizeof(float);
         bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-        static VkBuffer buffer;
         if (VK_SUCCESS != vkCreateBuffer(device, &bufferInfo, nullptr, &buffer)) {
             throw ERROR_MALLOC;
         }
+
+        VkMemoryRequirements memoryRequirements;
+        vkGetBufferMemoryRequirements(device, buffer, &memoryRequirements);
+
+        std::cout << "Memory req = " << memoryRequirements.size << " bytes" << std::endl;
+
+
+        // allocate memory for buffer
+        VkMemoryAllocateInfo memInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        memInfo.allocationSize = memoryRequirements.size;
+        memInfo.memoryTypeIndex = 0; //0 - 3 on my card, check this!
+        if (VK_SUCCESS != vkAllocateMemory(device, &memInfo, nullptr, &memory)) {
+            throw ERROR_MALLOC;
+        }
+
+        if (VK_SUCCESS != vkBindBufferMemory(device, buffer, memory, 0)) {
+            throw ERROR_MALLOC;
+        }
+
 
         // buffers to bind
         VkDescriptorBufferInfo descriptorBufferInfo;
@@ -402,7 +421,7 @@ public:
         return deviceProperties.vendorID;
     }
 
-    Memory memory(size_t byteSize)
+    /*Memory memory(size_t byteSize)
     {
         VkMemoryAllocateInfo memInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
         memInfo.allocationSize = byteSize;
@@ -413,7 +432,7 @@ public:
         }
 
         return Memory(memory, device);
-    }
+    }*/
 };
 
 class DevicePool {
