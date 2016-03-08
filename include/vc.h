@@ -8,76 +8,25 @@
 // only for debug
 #include <chrono>
 #include <iostream>
-#include <thread>
+
+#include "error.h"
+#include "buffer.h"
+#include "memory.h"
+#include "pipeline.h"
+#include "commandbuffer.h"
 
 namespace vc {
-
-enum Error{
-    ERROR_INSTANCE,
-    ERROR_DEVICES,
-    ERROR_MALLOC,
-    ERROR_MAP,
-    ERROR_SHADER
-};
 
 enum ResourceType {
     BUFFER = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 };
 
-class Memory {
-private:
-    VkDeviceMemory vkMemory;
-    VkDevice vkDevice;
-
-public:
-    Memory(VkDeviceMemory memory, VkDevice device)
-    {
-        vkMemory = memory;
-        vkDevice = device;
-    }
-
-    void *map()
-    {
-        static double *pointer;
-        if (VK_SUCCESS != vkMapMemory(vkDevice, vkMemory, 0, VK_WHOLE_SIZE, 0, (void **) &pointer)) {
-            throw ERROR_MAP;
-        }
-
-        return pointer;
-    }
-
-    void unmap()
-    {
-        vkUnmapMemory(vkDevice, vkMemory);
-    }
-};
-
-class Device;
-
-class Pipeline {
-    friend class Device;
-private:
-    VkPipeline vkPipeline;
-
-public:
-    Pipeline(VkPipeline pipeline)
-    {
-        vkPipeline = pipeline;
-    }
-};
-
 class Device {
-public: //private:
+private:
     VkPhysicalDevice vkPhysicalDevice;
     VkPhysicalDeviceProperties deviceProperties;
     VkDevice device;
     VkQueue queue;
-    VkCommandPool commandPool;
-    VkCommandBuffer commandBuffer;
-
-    // example buffer
-    VkBuffer buffer;
-    VkDeviceMemory memory;
 
 public:
     Device(VkPhysicalDevice physicalDevice)
@@ -105,56 +54,33 @@ public:
         }
 
         vkGetDeviceQueue(device, 0, 0, &queue);
-
-
-        // create command pool
-        VkCommandPoolCreateInfo commandPoolInfo = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-        commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        commandPoolInfo.queueFamilyIndex = 0;
-        if (VK_SUCCESS != vkCreateCommandPool(device, &commandPoolInfo, nullptr, &commandPool)) {
-            throw ERROR_DEVICES;
-        }
-
-        // create command buffer (these should be exposed separately as objects that can be submitted to devices)
-        VkCommandBufferAllocateInfo commandBufferInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-        commandBufferInfo.commandBufferCount = 1;
-        commandBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        commandBufferInfo.commandPool = commandPool;
-        if (VK_SUCCESS != vkAllocateCommandBuffers(device, &commandBufferInfo, &commandBuffer)) {
-            throw ERROR_DEVICES;
-        }
-
-        // this should be a function of the CommandBuffer object: begin()
-        VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        if (VK_SUCCESS != vkBeginCommandBuffer(commandBuffer, &beginInfo)) {
-            throw ERROR_DEVICES;
-        }
     }
 
-    // bind shader to command buffer
-    void useShader(Pipeline &shader)
+    CommandBuffer commandBuffer()
     {
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, shader.vkPipeline);
+        return CommandBuffer(device);
+    }
+
+    Buffer buffer(size_t byteSize)
+    {
+        return Buffer(device, byteSize);
+    }
+
+    void submit(CommandBuffer commandBuffer)
+    {
+        // Device.submit(CommandBuffer)
+        VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer.commandBuffer;
+        if (VK_SUCCESS != vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE)) {
+            throw ERROR_DEVICES;
+        }
     }
 
     // drain, split this up
     void drain()
     {
-        // this should be a function in CommandBuffer: end()
-        if (VK_SUCCESS != vkEndCommandBuffer(commandBuffer)) {
-            throw ERROR_DEVICES;
-        }
-
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-
-        // Device.submit(CommandBuffer)
-        VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
-        if (VK_SUCCESS != vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE)) {
-            throw ERROR_DEVICES;
-        }
 
         // Device.finish() / drain()
         if (VK_SUCCESS != vkQueueWaitIdle(queue)) {
@@ -163,18 +89,6 @@ public:
 
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::cout << "Computation took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms.\n";
-    }
-
-    // this will dispatch the previously "used" shader
-    void dispatch(int x, int y, int z)
-    {
-        vkCmdDispatch(commandBuffer, x, y, z);
-    }
-
-    void useResources()
-    {
-
-
     }
 
     Pipeline pipeline(const char *fileName, std::vector<ResourceType> resourceTypes)
@@ -333,82 +247,7 @@ public:
             throw ERROR_DEVICES;
         }
 
-
-
-
-        // how many of each type
-        VkDescriptorPoolSize descriptorPoolSizes[] = {
-            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1}
-        };
-
-        VkDescriptorPool descriptorPool;
-        VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-        descriptorPoolCreateInfo.poolSizeCount = 1;
-        descriptorPoolCreateInfo.maxSets = 1;
-        descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes;
-        if (VK_SUCCESS != vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, &descriptorPool)) {
-            throw ERROR_SHADER;
-        }
-
-
-
-        // allocate the descriptor set
-        VkDescriptorSet descriptorSet;
-        VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-        descriptorSetAllocateInfo.descriptorSetCount = 1;
-        descriptorSetAllocateInfo.pSetLayouts = &setLayouts;
-        descriptorSetAllocateInfo.descriptorPool = descriptorPool;
-
-        if (VK_SUCCESS != vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &descriptorSet)) {
-            throw ERROR_SHADER;
-        }
-
-        // allocate a buffer
-        VkBufferCreateInfo bufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-        bufferInfo.size = 1024 * sizeof(float);
-        bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-        if (VK_SUCCESS != vkCreateBuffer(device, &bufferInfo, nullptr, &buffer)) {
-            throw ERROR_MALLOC;
-        }
-
-        VkMemoryRequirements memoryRequirements;
-        vkGetBufferMemoryRequirements(device, buffer, &memoryRequirements);
-
-        std::cout << "Memory req = " << memoryRequirements.size << " bytes" << std::endl;
-
-
-        // allocate memory for buffer
-        VkMemoryAllocateInfo memInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-        memInfo.allocationSize = memoryRequirements.size;
-        memInfo.memoryTypeIndex = 0; //0 - 3 on my card, check this!
-        if (VK_SUCCESS != vkAllocateMemory(device, &memInfo, nullptr, &memory)) {
-            throw ERROR_MALLOC;
-        }
-
-        if (VK_SUCCESS != vkBindBufferMemory(device, buffer, memory, 0)) {
-            throw ERROR_MALLOC;
-        }
-
-
-        // buffers to bind
-        VkDescriptorBufferInfo descriptorBufferInfo;
-        descriptorBufferInfo.buffer = buffer;
-        descriptorBufferInfo.offset = 0;
-        descriptorBufferInfo.range = VK_WHOLE_SIZE;
-
-        // bind stuff here
-        VkWriteDescriptorSet writeDescriptorSet = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-        writeDescriptorSet.dstSet = descriptorSet;
-        writeDescriptorSet.dstBinding = 0;
-        writeDescriptorSet.descriptorCount = 1;
-        writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
-        vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
-
-        // use bindings
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-
-        return Pipeline(pipeline);
+        return Pipeline(device, pipeline, pipelineLayout, setLayouts);
     }
 
     const char *getName()
@@ -420,19 +259,6 @@ public:
     {
         return deviceProperties.vendorID;
     }
-
-    /*Memory memory(size_t byteSize)
-    {
-        VkMemoryAllocateInfo memInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-        memInfo.allocationSize = byteSize;
-        memInfo.memoryTypeIndex = 0; //0 - 3 on my card, check this!
-        VkDeviceMemory memory;
-        if (VK_SUCCESS != vkAllocateMemory(device, &memInfo, nullptr, &memory)) {
-            throw ERROR_MALLOC;
-        }
-
-        return Memory(memory, device);
-    }*/
 };
 
 class DevicePool {

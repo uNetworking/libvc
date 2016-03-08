@@ -14,44 +14,36 @@ int main()
     for (Device &device : devicePool.getDevices()) {
         cout << "Found device: " << device.getName() << " from vendor: 0x" << hex << device.getVendorId() << dec << endl;
 
-        /*Memory mem = device.memory(1000 * sizeof(int));
-        int *map = (int *) mem.map();
-
-        for (int i = 0; i < 1000; i++) {
-            map[i] = i;
-        }
-
-        mem.unmap();*/
-
         try {
+            // Compile shader and allocate a buffer
+            Pipeline pipeline = device.pipeline("/home/alexhultman/libvc/shaders/comp.spv", {BUFFER});
+            Buffer buffer = device.buffer(sizeof(float) * 256);
 
-            // load / compile shader
-            Pipeline pipeline = device.pipeline("/home/alexhultman/comp.spv", {BUFFER});
+            // Build the command buffer
+            CommandBuffer commandBuffer = device.commandBuffer();
+            commandBuffer.begin();
+            commandBuffer.bindPipeline(pipeline);
+            commandBuffer.bindResources(pipeline, {buffer});
+            commandBuffer.dispatch(1, 1, 1);
+            commandBuffer.end();
 
-            // bind shader to current command buffer (currently hidden in device)
-            device.useShader(pipeline);
-
-            // bind resources in order - take vector of resources
-            device.useResources();
-
-            // enquque a range to the current command buffer
-            device.dispatch(1, 1, 1);
-
-            // end the command buffer and submit it, wait for it to finish, time it
+            // Submit and wait for command buffer to finish
+            device.submit(commandBuffer);
             device.drain();
 
-            // try to read the buffer now!
-            Memory mem(device.memory, device.device);
-            float *reals = (float *) mem.map();
-            cout << "Read memory[0] = " << reals[0] << endl;
-
+            // Map the memory of the buffer and print it
+            cout << "Vector:";
+            float *reals = (float *) buffer.map();
+            for (int i = 0; i < 256; i++) {
+                cout << " " << reals[i];
+            }
+            cout << endl;
 
         } catch(vc::Error e) {
             cout << "vc::Error thrown" << endl;
         }
     }
 
-    //this_thread::sleep_for(seconds(1));
     cout << "Done" << endl;
     return 0;
 }

@@ -4,7 +4,12 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += src/main.cpp
-HEADERS += include/vc.h
+HEADERS += include/vc.h \
+    include/buffer.h \
+    include/memory.h \
+    include/error.h \
+    include/pipeline.h \
+    include/commandbuffer.h
 
 INCLUDEPATH += include
 LIBS += -L$$_PRO_FILE_PWD_/lib -l:libvulkan.so.1
