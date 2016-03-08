@@ -16,39 +16,35 @@ The interface is still being designed. It will feature abstractions for devices,
 DevicePool devicePool;
 for (Device &device : devicePool.getDevices()) {
     cout << "Found device: " << device.getName() << " from vendor: 0x"
-         << hex << device.getVendorId() << endl;
+         << hex << device.getVendorId() << dec << endl;
 
-    // -- PREPARATIONS --
+    try {
+        // Compile shader and allocate a buffer
+        Pipeline pipeline = device.pipeline("shaders/comp.spv", {BUFFER});
+        Buffer buffer = device.buffer(sizeof(float) * 256);
 
-    // Load & compile a compute pipeline with 1 bound buffer
-    Pipeline pipeline = device.pipeline("computeShader.spv", {
-        BUFFER
-    });
-    
-    // Allocate a 1 kb buffer, undefined content
-    Buffer buffer = device.buffer(1024);
-    
-    // Create a command buffer and start recording commands to it
-    CommandBuffer commandBuffer = device.commandBuffer();
-    commandBuffer.start();
+        // Build the command buffer
+        CommandBuffer commandBuffer = device.commandBuffer();
+        commandBuffer.begin();
+        commandBuffer.bindPipeline(pipeline);
+        commandBuffer.bindResources(pipeline, {buffer});
+        commandBuffer.dispatch(1, 1, 1);
+        commandBuffer.end();
 
-    // Use the pipeline & bind our buffer to its first binding point
-    commandBuffer.usePipeline(pipeline, {buffer});
+        // Submit and wait for command buffer to finish
+        device.submit(commandBuffer);
+        device.drain();
 
-    // Enquque a dispatch (execution over a range)
-    commandBuffer.dispatch(1024, 1, 1);
+        // Map the memory of the buffer and print it
+        cout << "Vector:";
+        float *reals = (float *) buffer.map();
+        for (int i = 0; i < 256; i++) {
+            cout << " " << reals[i];
+        }
+        cout << endl;
 
-    // Ending the command buffer is separate from submitting it
-    commandBuffer.end();
-    
-    // -- Start your timer here --
-    
-    // Submit the command buffer for execution on the GPU
-    device.submit(commandBuffer);
-    
-    // Wait for completion
-    device.drain();
-    
-    // -- End your timer here --
+    } catch(vc::Error e) {
+        cout << "vc::Error thrown" << endl;
+    }
 }
 ```
