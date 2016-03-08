@@ -152,7 +152,11 @@ public:
         }
 
         // Device.finish() / drain()
-        if (VK_SUCCESS != vkQueueWaitIdle(queue)) {
+        int err;
+        if (VK_SUCCESS != (err = vkQueueWaitIdle(queue))) {
+            if (err == VK_ERROR_DEVICE_LOST) {
+                std::cout << "NVIDIA driver bug?" << std::endl;
+            }
             throw ERROR_DEVICES;
         }
 
@@ -198,7 +202,7 @@ public:
 //        the SPIR-V Environment appendix
 //        • If pCode declares any of the capabilities that are listed as not required by the implementation, the relevant feature
 //        must be enabled, as listed in the SPIR-V Environment appendix
-        VkShaderModule shaderModule;
+        static VkShaderModule shaderModule;
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
         shaderModuleCreateInfo.codeSize = byteLength;
         shaderModuleCreateInfo.pCode = (uint32_t *) data;
@@ -347,7 +351,7 @@ public:
 
 
 
-        // bind resources to slots
+        // allocate the descriptor set
         VkDescriptorSet descriptorSet;
         VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
         descriptorSetAllocateInfo.descriptorSetCount = 1;
@@ -358,11 +362,32 @@ public:
             throw ERROR_SHADER;
         }
 
-        // bind resources
+        // allocate a buffer
+        VkBufferCreateInfo bufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        bufferInfo.size = 1024 * sizeof(float);
+        bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        static VkBuffer buffer;
+        if (VK_SUCCESS != vkCreateBuffer(device, &bufferInfo, nullptr, &buffer)) {
+            throw ERROR_MALLOC;
+        }
+
+        // buffers to bind
+        VkDescriptorBufferInfo descriptorBufferInfo;
+        descriptorBufferInfo.buffer = buffer;
+        descriptorBufferInfo.offset = 0;
+        descriptorBufferInfo.range = VK_WHOLE_SIZE;
+
+        // bind stuff here
+        VkWriteDescriptorSet writeDescriptorSet = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        writeDescriptorSet.dstSet = descriptorSet;
+        writeDescriptorSet.dstBinding = 0;
+        writeDescriptorSet.descriptorCount = 1;
+        writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
+        vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
+
+        // use bindings
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-
-
-
 
         return Pipeline(pipeline);
     }
