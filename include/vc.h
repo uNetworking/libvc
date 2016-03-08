@@ -20,7 +20,7 @@ enum Error{
 };
 
 enum ResourceType {
-    BUFFER = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC
+    BUFFER = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
 };
 
 class Memory {
@@ -331,9 +331,16 @@ public:
 
 
 
+        // how many of each type
+        VkDescriptorPoolSize descriptorPoolSizes[] = {
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1}
+        };
+
         VkDescriptorPool descriptorPool;
         VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-        //descriptorPoolCreateInfo.
+        descriptorPoolCreateInfo.poolSizeCount = 1;
+        descriptorPoolCreateInfo.maxSets = 1;
+        descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes;
         if (VK_SUCCESS != vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, &descriptorPool)) {
             throw ERROR_SHADER;
         }
