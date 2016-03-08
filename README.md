@@ -5,7 +5,7 @@ Compute shaders are constantly being evolved and extended with new versions of O
 
 * SSBO's allows for passing mutable linear global memory to your shaders.
 * Vulkan command buffers allows for recording commands once and replaying them multiple times, minimizing CPU overhead.
-* NVIDIA refuse to embrace OpenCL in favor of their prioprietary CUDA altenative - but they do embrace Vulkan and OpenGL.
+* NVIDIA refuse to embrace OpenCL in favor of their prioprietary CUDA alternative - but they do embrace Vulkan and OpenGL.
 
 ![](vulkan.png) ![](spir.png)
 
