@@ -2,6 +2,7 @@
 #define COMMANDBUFFER_H
 
 #include <vulkan/vulkan.h>
+#include <vector>
 
 namespace vc {
 
@@ -64,6 +65,7 @@ public:
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
     }
 
+    // makes use of privates in the pipeline! pipeline.bind(resources)?
     void bindResources(Pipeline &pipeline, std::vector<Buffer> resources)
     {
         // how many of each type
@@ -74,7 +76,7 @@ public:
         // share this one?
         VkDescriptorPool descriptorPool;
         VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-        descriptorPoolCreateInfo.poolSizeCount = 2; // 1?
+        descriptorPoolCreateInfo.poolSizeCount = 1; // 1?
         descriptorPoolCreateInfo.maxSets = 1;
         descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes;
         if (VK_SUCCESS != vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, &descriptorPool)) {
@@ -82,12 +84,14 @@ public:
         }
 
 
-
         // allocate the descriptor set
         VkDescriptorSet descriptorSet;
         VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
         descriptorSetAllocateInfo.descriptorSetCount = 1; // 1?
-        descriptorSetAllocateInfo.pSetLayouts = &pipeline.vkDescriptorSetLayout;
+
+        // private!
+        descriptorSetAllocateInfo.pSetLayouts = &pipeline.descriptorSetLayout;
+
         descriptorSetAllocateInfo.descriptorPool = descriptorPool;
 
         if (VK_SUCCESS != vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &descriptorSet)) {
@@ -113,7 +117,8 @@ public:
         vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
 
         // use bindings
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.vkPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+        // private!
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
     }
 };
 

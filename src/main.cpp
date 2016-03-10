@@ -29,8 +29,11 @@ int main()
             commandBuffer.end();
 
             // Submit and wait for command buffer to finish
+            std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
             device.submit(commandBuffer);
-            device.drain();
+            device.wait();
+            std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+            std::cout << "Computation took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms.\n";
 
             // Map the memory of the buffer and print it
             cout << "Vector1:";
