@@ -6,49 +6,61 @@
 namespace vc {
 
 class Buffer {
-    friend class CommandBuffer;
-
 private:
-    VkDeviceMemory vkMemory;
-    VkBuffer vkBuffer;
-    VkDevice vkDevice;
+    VkDeviceMemory memory;
+    VkBuffer buffer;
+    VkDevice device;
 
 public:
-    Buffer(VkDevice device, size_t byteSize)
+    Buffer(VkDevice device, size_t byteSize, int memoryType) : device(device)
     {
-        vkDevice = device;
-
-        // allocate a buffer
-        VkBufferCreateInfo bufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-        bufferInfo.size = 1024 * sizeof(float);
-        bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-        if (VK_SUCCESS != vkCreateBuffer(device, &bufferInfo, nullptr, &vkBuffer)) {
+        // create buffer
+        VkBufferCreateInfo bufferCreateInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        bufferCreateInfo.size = byteSize;
+        bufferCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        if (VK_SUCCESS != vkCreateBuffer(device, &bufferCreateInfo, nullptr, &buffer)) {
             throw ERROR_MALLOC;
         }
 
+        // get memory requirements
         VkMemoryRequirements memoryRequirements;
-        vkGetBufferMemoryRequirements(device, vkBuffer, &memoryRequirements);
+        vkGetBufferMemoryRequirements(device, buffer, &memoryRequirements);
 
-        std::cout << "Memory req = " << memoryRequirements.size << " bytes" << std::endl;
-
-
-        // allocate memory for buffer
-        VkMemoryAllocateInfo memInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-        memInfo.allocationSize = memoryRequirements.size;
-        memInfo.memoryTypeIndex = 0; //0 - 3 on my card, check this!
-        if (VK_SUCCESS != vkAllocateMemory(device, &memInfo, nullptr, &vkMemory)) {
+        // allocate memory for the buffer
+        VkMemoryAllocateInfo memoryAllocateInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        memoryAllocateInfo.allocationSize = memoryRequirements.size;
+        memoryAllocateInfo.memoryTypeIndex = memoryType;
+        if (VK_SUCCESS != vkAllocateMemory(device, &memoryAllocateInfo, nullptr, &memory)) {
             throw ERROR_MALLOC;
         }
 
-        if (VK_SUCCESS != vkBindBufferMemory(device, vkBuffer, vkMemory, 0)) {
+        // bind memory to the buffer
+        if (VK_SUCCESS != vkBindBufferMemory(device, buffer, memory, 0)) {
             throw ERROR_MALLOC;
         }
     }
 
+    // we should be able to convert to the underlying vulkan representation
+    operator VkBuffer()
+    {
+        return buffer;
+    }
+
+    void destroy()
+    {
+        vkFreeMemory(device, memory, nullptr);
+        vkDestroyBuffer(device, buffer, nullptr);
+    }
+
+    void unmap()
+    {
+        vkUnmapMemory(device, memory);
+    }
+
     void *map()
     {
-        static double *pointer;
-        if (VK_SUCCESS != vkMapMemory(vkDevice, vkMemory, 0, VK_WHOLE_SIZE, 0, (void **) &pointer)) {
+        double *pointer;
+        if (VK_SUCCESS != vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, (void **) &pointer)) {
             throw ERROR_MAP;
         }
 

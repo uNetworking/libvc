@@ -28,6 +28,9 @@ private:
     VkDevice device;
     VkQueue queue;
 
+    // memory types
+    int memoryTypeMappable;
+
 public:
     Device(VkPhysicalDevice physicalDevice)
     {
@@ -54,6 +57,19 @@ public:
         }
 
         vkGetDeviceQueue(device, 0, 0, &queue);
+
+        // physical device prop part of DevicePool?
+        VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &physicalDeviceMemoryProperties);
+        for (int i = 0; i < physicalDeviceMemoryProperties.memoryTypeCount; i++) {
+            // store what memory types are mappable
+            if (physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+                memoryTypeMappable = i;
+
+                // choose first match, recommended
+                break;
+            }
+        }
     }
 
     CommandBuffer commandBuffer()
@@ -63,15 +79,15 @@ public:
 
     Buffer buffer(size_t byteSize)
     {
-        return Buffer(device, byteSize);
+        return Buffer(device, byteSize, memoryTypeMappable);
     }
 
     void submit(CommandBuffer commandBuffer)
     {
-        // Device.submit(CommandBuffer)
         VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer.commandBuffer;
+        VkCommandBuffer commandBuffers[1] = {commandBuffer};
+        submitInfo.pCommandBuffers = commandBuffers;
         if (VK_SUCCESS != vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE)) {
             throw ERROR_DEVICES;
         }
@@ -117,13 +133,16 @@ public:
 //        the SPIR-V Environment appendix
 //        • If pCode declares any of the capabilities that are listed as not required by the implementation, the relevant feature
 //        must be enabled, as listed in the SPIR-V Environment appendix
-        static VkShaderModule shaderModule;
+        VkShaderModule shaderModule;
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
         shaderModuleCreateInfo.codeSize = byteLength;
         shaderModuleCreateInfo.pCode = (uint32_t *) data;
         if (VK_SUCCESS != vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &shaderModule)) {
             throw ERROR_SHADER;
         }
+
+        delete [] data;
+
 
 //        Valid Usage
 //        • sType must be VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO
@@ -247,6 +266,8 @@ public:
             throw ERROR_DEVICES;
         }
 
+        delete [] bindings;
+
         return Pipeline(device, pipeline, pipelineLayout, setLayouts);
     }
 
@@ -263,7 +284,6 @@ public:
 
 class DevicePool {
 private:
-    const int MAX_DEVICES = 10; // you dont need this, can get from the driver
     VkInstance vkInstance;
     std::vector<Device> devices;
 
@@ -276,7 +296,11 @@ public:
         }
 
         uint32_t numDevices;
-        VkPhysicalDevice vkPhysicalDevices[MAX_DEVICES];
+        if (VK_SUCCESS != vkEnumeratePhysicalDevices(vkInstance, &numDevices, nullptr) || !numDevices) {
+            throw ERROR_DEVICES;
+        }
+
+        VkPhysicalDevice vkPhysicalDevices[numDevices];
         if (VK_SUCCESS != vkEnumeratePhysicalDevices(vkInstance, &numDevices, vkPhysicalDevices)) {
             throw ERROR_DEVICES;
         }

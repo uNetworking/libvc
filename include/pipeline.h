@@ -6,19 +6,24 @@
 namespace vc {
 
 class Pipeline {
+    // todo: this should not be a friend
     friend class CommandBuffer;
 private:
-    VkPipeline vkPipeline;
+    VkPipeline pipeline;
     VkPipelineLayout vkPipelineLayout;
     VkDescriptorSetLayout vkDescriptorSetLayout;
     VkDevice device;
 
 public:
-    Pipeline(VkDevice device, VkPipeline pipeline, VkPipelineLayout pipelineLayout, VkDescriptorSetLayout setLayouts) : device(device)
+    Pipeline(VkDevice device, VkPipeline pipeline, VkPipelineLayout pipelineLayout, VkDescriptorSetLayout setLayouts) : device(device), pipeline(pipeline)
     {
-        vkPipeline = pipeline;
         vkPipelineLayout = pipelineLayout;
         vkDescriptorSetLayout = setLayouts;
+    }
+
+    operator VkPipeline()
+    {
+        return pipeline;
     }
 };
 

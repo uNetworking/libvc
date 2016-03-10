@@ -6,7 +6,6 @@ CONFIG -= qt
 SOURCES += src/main.cpp
 HEADERS += include/vc.h \
     include/buffer.h \
-    include/memory.h \
     include/error.h \
     include/pipeline.h \
     include/commandbuffer.h
