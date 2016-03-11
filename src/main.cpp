@@ -15,6 +15,52 @@ int main()
         cout << "Found device: " << device.getName() << " from vendor: 0x" << hex << device.getVendorId() << dec << endl;
 
         try {
+            Pipeline pipeline = device.pipeline("/home/alexhultman/libvc/shaders/comp.spv", {BUFFER, BUFFER});
+            Buffer input = device.buffer(sizeof(double) * 10240);
+            Buffer output = device.buffer(sizeof(double) * 10240);
+
+            double *inputScalars = (double *) output.map();
+            for (int i = 0; i < 10240; i++) {
+                inputScalars[i] = 0;
+            }
+            output.unmap();
+
+            // create a command buffer with 100k passes
+            CommandBuffer commandBuffer = device.commandBuffer();
+            commandBuffer.begin();
+            commandBuffer.bindPipeline(pipeline);
+            commandBuffer.bindResources(pipeline, {input, output});
+
+            steady_clock::time_point start = steady_clock::now();
+            for (int i = 0; i < 100000; i++) {
+                commandBuffer.dispatch(40, 1, 1);
+                commandBuffer.barrier();
+            }
+            commandBuffer.end();
+            cout << "Command buffer creation took " << duration_cast<milliseconds>(steady_clock::now() - start).count() << "ms.\n";
+
+            // submit the same buffer twice, resultig in 200k passes
+            start = steady_clock::now();
+            device.submit(commandBuffer);
+            //device.submit(commandBuffer);
+            device.wait();
+            cout << "Computation took " << duration_cast<milliseconds>(steady_clock::now() - start).count() << "ms.\n";
+
+            // check for correctness
+            double *outputScalars = (double *) output.map();
+            cout << "Scalar is: " << outputScalars[0] << endl;
+            for (int i = 1; i < 10240; i++) {
+                if (outputScalars[i] != outputScalars[i - 1]) {
+                    cout << "Corruption!" << endl;
+                    break;
+                } else if (i == 10240 - 1) {
+                    cout << "Everything matches!" << endl;
+                }
+            }
+            output.unmap();
+
+
+            /*
             // Compile shader and allocate a buffer
             Pipeline pipeline = device.pipeline("/home/alexhultman/libvc/shaders/comp.spv", {BUFFER, BUFFER});
             Buffer buffer1 = device.buffer(sizeof(float) * 256);
@@ -54,7 +100,7 @@ int main()
             cout << endl;
 
             buffer2.unmap();
-            buffer2.destroy();
+            buffer2.destroy();*/
 
         } catch(vc::Error e) {
             cout << "vc::Error thrown" << endl;

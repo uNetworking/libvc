@@ -20,7 +20,7 @@ public:
         commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
         commandPoolInfo.queueFamilyIndex = 0;
         if (VK_SUCCESS != vkCreateCommandPool(device, &commandPoolInfo, nullptr, &commandPool)) {
-            throw ERROR_DEVICES;
+            throw ERROR_COMMAND;
         }
 
         VkCommandBufferAllocateInfo commandBufferInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
@@ -28,7 +28,7 @@ public:
         commandBufferInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         commandBufferInfo.commandPool = commandPool;
         if (VK_SUCCESS != vkAllocateCommandBuffers(device, &commandBufferInfo, &commandBuffer)) {
-            throw ERROR_DEVICES;
+            throw ERROR_COMMAND;
         }
     }
 
@@ -37,20 +37,24 @@ public:
         return commandBuffer;
     }
 
-    // todo: multiple submits by default?
     void begin()
     {
-        VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        if (VK_SUCCESS != vkBeginCommandBuffer(commandBuffer, &beginInfo)) {
-            throw ERROR_DEVICES;
+        VkCommandBufferBeginInfo commandBufferBeginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        if (VK_SUCCESS != vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo)) {
+            throw ERROR_COMMAND;
         }
+    }
+
+    void barrier()
+    {
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
     }
 
     void end()
     {
         if (VK_SUCCESS != vkEndCommandBuffer(commandBuffer)) {
-            throw ERROR_DEVICES;
+            throw ERROR_COMMAND;
         }
     }
 
