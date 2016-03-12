@@ -74,7 +74,7 @@ public:
     {
         // how many of each type
         VkDescriptorPoolSize descriptorPoolSizes[] = {
-            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, resources.size()}
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, (uint32_t) resources.size()}
         };
 
         // share this one?
