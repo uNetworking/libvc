@@ -29,7 +29,7 @@ public:
         queueCreateInfo.pQueuePriorities = priorities;
         queueCreateInfo.queueFamilyIndex = 0; // should be checked!
 
-        VkPhysicalDeviceFeatures features;
+        VkPhysicalDeviceFeatures features = {};
 
         deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
         deviceCreateInfo.pEnabledFeatures = &features;
