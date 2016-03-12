@@ -47,8 +47,8 @@ public:
 
     void barrier()
     {
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT /*VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT*/,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT /*VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT*/, 0, 0, nullptr, 0, nullptr, 0, nullptr);
     }
 
     void end()
@@ -123,6 +123,12 @@ public:
         // use bindings
         // private!
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+    }
+
+    void copyBuffer(Buffer src, Buffer dst, size_t byteSize)
+    {
+        VkBufferCopy bufferCopy = {0, 0, byteSize};
+        vkCmdCopyBuffer(commandBuffer, src, dst, 1, &bufferCopy);
     }
 };
 

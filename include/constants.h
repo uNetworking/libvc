@@ -10,7 +10,8 @@ enum Error{
     ERROR_DEVICES,
     ERROR_MALLOC,
     ERROR_MAP,
-    ERROR_SHADER
+    ERROR_SHADER,
+    ERROR_COMMAND
 };
 
 enum ResourceType {

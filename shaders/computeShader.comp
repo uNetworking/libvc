@@ -1,21 +1,13 @@
 #version 430
 
-// local size is defined in shader
-layout(local_size_x=256, local_size_y=1, local_size_z=1) in;
+layout(local_size_x=1024, local_size_y=1, local_size_z=1) in;
 
-// bind two buffers to the shader
-layout (binding=0) buffer a1
-{
-	double inp[];
-};
-
-layout (binding=1) buffer a2
+layout (binding=0) buffer a2
 {
 	double outp[];
 };
 
 void main()
 {
-	uint id = gl_GlobalInvocationID.x;
-	outp[id] += 1.0;//inp[id] * 2;
+	outp[gl_GlobalInvocationID.x] += 1.0;
 }
