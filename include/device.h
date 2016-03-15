@@ -8,40 +8,56 @@ namespace vc {
 class Device {
 private:
     VkPhysicalDevice physicalDevice;
-    VkPhysicalDeviceProperties deviceProperties;
+    VkPhysicalDeviceProperties physicalDeviceProperties;
     VkDevice device;
     VkQueue queue;
 
-    // memory types
-    int memoryTypeMappable = -1, memoryTypeLocal = -1;
+    int memoryTypeMappable = -1,
+        memoryTypeLocal = -1,
+        computeQueueFamily = -1;
 
 public:
     Device(VkPhysicalDevice physicalDevice) : physicalDevice(physicalDevice)
     {
-        vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+        // select a queue family with compute support
+        uint32_t numQueues;
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &numQueues, nullptr);
 
-        VkDeviceCreateInfo deviceCreateInfo = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+        VkQueueFamilyProperties *queueFamilyProperties = new VkQueueFamilyProperties[numQueues];
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &numQueues, queueFamilyProperties);
 
-        // very placeholderish!
+        for (int i = 0; i < numQueues; i++) {
+            if (queueFamilyProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                computeQueueFamily = i;
+                break;
+            }
+        }
+
+        delete [] queueFamilyProperties;
+        if (computeQueueFamily == -1) {
+            throw ERROR_DEVICES;
+        }
+
         VkDeviceQueueCreateInfo queueCreateInfo = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
         queueCreateInfo.queueCount = 1;
         float priorities[] = {1.0f};
         queueCreateInfo.pQueuePriorities = priorities;
-        queueCreateInfo.queueFamilyIndex = 0; // should be checked!
+        queueCreateInfo.queueFamilyIndex = computeQueueFamily;
 
-        VkPhysicalDeviceFeatures features = {};
-
+        // create the logical device
+        VkPhysicalDeviceFeatures physicalDeviceFeatures = {};
+        VkDeviceCreateInfo deviceCreateInfo = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
         deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
-        deviceCreateInfo.pEnabledFeatures = &features;
+        deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
         deviceCreateInfo.queueCreateInfoCount = 1;
-
         if (VK_SUCCESS != vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device)) {
             throw ERROR_DEVICES;
         }
 
-        vkGetDeviceQueue(device, 0, 0, &queue);
+        vkGetDeviceQueue(device, computeQueueFamily, 0, &queue);
+        vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
 
-        // physical device prop part of DevicePool?
+        // get indices of memory types we care about
         VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
         vkGetPhysicalDeviceMemoryProperties(physicalDevice, &physicalDeviceMemoryProperties);
         for (int i = 0; i < physicalDeviceMemoryProperties.memoryTypeCount; i++) {
@@ -55,9 +71,23 @@ public:
         }
     }
 
+    void destroy()
+    {
+        vkDestroyDevice(device, nullptr);
+    }
+
     CommandBuffer commandBuffer()
     {
-        return CommandBuffer(device);
+        return CommandBuffer(device, computeQueueFamily);
+    }
+
+    CommandBuffer beginCommandBuffer(Pipeline &pipeline, std::vector<Buffer> resources)
+    {
+        CommandBuffer cb(device, computeQueueFamily);
+        cb.begin();
+        cb.bindPipeline(pipeline);
+        cb.bindResources(pipeline, resources);
+        return cb;
     }
 
     Buffer buffer(size_t byteSize)
@@ -95,12 +125,12 @@ public:
 
     const char *getName()
     {
-        return deviceProperties.deviceName;
+        return physicalDeviceProperties.deviceName;
     }
 
     uint32_t getVendorId()
     {
-        return deviceProperties.vendorID;
+        return physicalDeviceProperties.vendorID;
     }
 };
 

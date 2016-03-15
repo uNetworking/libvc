@@ -1,6 +1,8 @@
 #ifndef PIPELINE_H
 #define PIPELINE_H
 
+// needs clean-ups!
+
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <fstream>
@@ -8,12 +10,12 @@
 namespace vc {
 
 class Pipeline {
-    // todo: this should not be a friend
-    friend class CommandBuffer;
 private:
     VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
     VkDescriptorSetLayout descriptorSetLayout;
+    VkDescriptorSet descriptorSet;
+    VkDescriptorPool descriptorPool;
     VkDevice device;
 
 public:
@@ -140,7 +142,6 @@ public:
 
 
 
-
 //        Valid Usage
 //        • device must be a valid VkDevice handle
 //        • pCreateInfo must be a pointer to a valid VkPipelineLayoutCreateInfo structure
@@ -177,6 +178,45 @@ public:
         }
 
         delete [] bindings;
+
+        // how many of each type
+        VkDescriptorPoolSize descriptorPoolSizes[] = {
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, (uint32_t) resourceTypes.size()}
+        };
+
+        VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        descriptorPoolCreateInfo.poolSizeCount = 1;
+        descriptorPoolCreateInfo.maxSets = 1;
+        descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes;
+        if (VK_SUCCESS != vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, &descriptorPool)) {
+            throw ERROR_SHADER;
+        }
+
+        // allocate the descriptor set
+        VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+        descriptorSetAllocateInfo.descriptorSetCount = 1; // 1?
+        descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout;
+        descriptorSetAllocateInfo.descriptorPool = descriptorPool;
+
+        if (VK_SUCCESS != vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &descriptorSet)) {
+            throw ERROR_SHADER;
+        }
+    }
+
+    VkDescriptorSet getDescriptorSet()
+    {
+        return descriptorSet;
+    }
+
+    VkPipelineLayout getPipelineLayout()
+    {
+        return pipelineLayout;
+    }
+
+    void destroy()
+    {
+        vkFreeDescriptorSets(device, descriptorPool, 1, &descriptorSet);
+        vkDestroyDescriptorPool(device, descriptorPool, nullptr);
     }
 
     operator VkPipeline()

@@ -34,11 +34,7 @@ int main()
             device.wait();
 
             // create a command buffer with 100k passes
-            CommandBuffer commandBuffer = device.commandBuffer();
-            commandBuffer.begin();
-            commandBuffer.bindPipeline(pipeline);
-            commandBuffer.bindResources(pipeline, {output});
-
+            CommandBuffer commandBuffer = device.beginCommandBuffer(pipeline, {output});
             steady_clock::time_point start = steady_clock::now();
             for (int i = 0; i < 100000; i++) {
                 commandBuffer.dispatch(10, 1, 1);
@@ -82,6 +78,20 @@ int main()
             }
             mappable.unmap();
 
+            // delete memories
+            mappable.destroy();
+            output.destroy();
+
+            // delete command buffers
+            writeCommands.destroy();
+            readCommands.destroy();
+            commandBuffer.destroy();
+
+            // delete pipelines
+            pipeline.destroy();
+
+            // delete devices
+            device.destroy();
 
             /*
             // Compile shader and allocate a buffer

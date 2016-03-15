@@ -7,30 +7,32 @@ namespace vc {
 
 class DevicePool {
 private:
-    VkInstance vkInstance;
+    VkInstance instance;
     std::vector<Device> devices;
 
 public:
     DevicePool()
     {
-        VkInstanceCreateInfo vkInfo = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
-        if (VK_SUCCESS != vkCreateInstance(&vkInfo, nullptr, &vkInstance)) {
+        VkInstanceCreateInfo instanceCreateInfo = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+        if (VK_SUCCESS != vkCreateInstance(&instanceCreateInfo, nullptr, &instance)) {
             throw ERROR_INSTANCE;
         }
 
         uint32_t numDevices;
-        if (VK_SUCCESS != vkEnumeratePhysicalDevices(vkInstance, &numDevices, nullptr) || !numDevices) {
+        if (VK_SUCCESS != vkEnumeratePhysicalDevices(instance, &numDevices, nullptr) || !numDevices) {
             throw ERROR_DEVICES;
         }
 
-        VkPhysicalDevice vkPhysicalDevices[numDevices];
-        if (VK_SUCCESS != vkEnumeratePhysicalDevices(vkInstance, &numDevices, vkPhysicalDevices)) {
+        VkPhysicalDevice *physicalDevices = new VkPhysicalDevice[numDevices];
+        if (VK_SUCCESS != vkEnumeratePhysicalDevices(instance, &numDevices, physicalDevices)) {
             throw ERROR_DEVICES;
         }
 
         for (int i = 0; i < numDevices; i++) {
-            devices.push_back(Device(vkPhysicalDevices[i]));
+            devices.push_back(Device(physicalDevices[i]));
         }
+
+        delete [] physicalDevices;
     }
 
     std::vector<Device> &getDevices()
@@ -40,7 +42,7 @@ public:
 
     VkInstance &getInstance()
     {
-        return vkInstance;
+        return instance;
     }
 };
 

@@ -40,7 +40,6 @@ public:
         }
     }
 
-    // we should be able to convert to the underlying vulkan representation
     operator VkBuffer()
     {
         return buffer;
