@@ -19,29 +19,34 @@ for (Device &device : devicePool.getDevices()) {
          << hex << device.getVendorId() << dec << endl;
 
     try {
-        // Compile shader and allocate a buffer
-        Pipeline pipeline = device.pipeline("shaders/comp.spv", {BUFFER});
-        Buffer buffer = device.buffer(sizeof(float) * 256);
+            // Allocate a buffer & clear it
+            Buffer buffer(device, sizeof(double) * 10240);
+            buffer.fill(0);
 
-        // Build the command buffer
-        CommandBuffer commandBuffer = device.commandBuffer();
-        commandBuffer.begin();
-        commandBuffer.bindPipeline(pipeline);
-        commandBuffer.bindResources(pipeline, {buffer});
-        commandBuffer.dispatch(1, 1, 1);
-        commandBuffer.end();
+            // Compile the compute shader & prepare to use the buffer as argument
+            Program program(device, "shaders/comp.spv", {BUFFER});
+            Arguments args(program, {buffer});
 
-        // Submit and wait for command buffer to finish
-        device.submit(commandBuffer);
-        device.drain();
+            // Create and build the command buffer, makig use of the program and arguments
+            CommandBuffer commands(device, program, args);
+            for (int i = 0; i < 100000; i++) {
+                commands.dispatch(10);
+                commands.barrier();
+            }
+            commands.end();
 
-        // Map the memory of the buffer and print it
-        cout << "Vector:";
-        float *reals = (float *) buffer.map();
-        for (int i = 0; i < 256; i++) {
-            cout << " " << reals[i];
-        }
-        cout << endl;
+            // Time the execution on the GPU
+            for (int i = 0; i < 5; i++) {
+                steady_clock::time_point start = steady_clock::now();
+                device.submit(commands);
+                device.wait();
+                cout << duration_cast<milliseconds>(steady_clock::now() - start).count() << "ms" << endl;
+            }
+
+            // Download results and show the first scalar
+            double results[10240];
+            buffer.download(results);
+            cout << "Result: " << results[0] << endl;
 
     } catch(vc::Error e) {
         cout << "vc::Error thrown" << endl;
