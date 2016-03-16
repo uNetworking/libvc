@@ -27,7 +27,7 @@ for (Device &device : devicePool.getDevices()) {
             Program program(device, "shaders/comp.spv", {BUFFER});
             Arguments args(program, {buffer});
 
-            // Create and build the command buffer, makig use of the program and arguments
+            // Create and build the command buffer, making use of the program and arguments
             CommandBuffer commands(device, program, args);
             for (int i = 0; i < 100000; i++) {
                 commands.dispatch(10);
