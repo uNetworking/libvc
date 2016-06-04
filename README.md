@@ -1,4 +1,4 @@
-# Vulkan Compute for C++
+# Vulkan Compute for C++ (experimentation project)
 ```libvc``` is a GPGPU engine based on Vulkan. It eats SPIR-V compute shaders and executes them without any graphical context, much like ```OpenCL```. The interface is very abstract and allows you to get to work with your shaders as quickly as possible. With the current state of compute shaders, you should be able to achieve ~OpenCL 1.2 feature parity.
 
 Compute shaders are constantly being evolved and extended with new versions of OpenGL, GLSL and/or Vulkan. They are here to stay and will only become more competent with time.
